@@ -1,0 +1,51 @@
+name: Build and Deploy Frontend to Development
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: 'feature/cicd'
+
+      - name: Docker Setup Compose
+        uses: docker/setup-compose-action@v1
+
+      - name: Create .env File
+        run: |
+          echo "${{ vars.ENV_DEV }}" > .env.development
+
+      - name: Build Container with Docker Compose
+        run: |
+          docker compose --file docker-compose-dev.yml build --no-cache
+          docker image save mavoka-fe-2025-dev-img:latest --output mavoka-fe-2025-dev-img.tar
+
+      - name: Copy Image to Server with SCP
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: './mavoka-fe-2025-dev-img.tar'
+          target: ${{ secrets.SCP_PATH }}
+
+      - name: Deploy (Development) with SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd ${{ secrets.SCP_PATH }}
+            git pull origin feature/cicd
+            echo "${{ vars.ENV_DEV }}" > .env.development
+            docker compose --file docker-compose-dev.yml down --rmi all
+            docker image load --input mavoka-fe-2025-dev-img.tar
+            docker compose --file docker-compose-dev.yml up --detach
