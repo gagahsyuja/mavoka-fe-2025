@@ -2,6 +2,7 @@ name: Build and Deploy Frontend to Development
 
 on:
   push:
+    branches: [ 'dev' ]
   workflow_dispatch:
 
 jobs:
@@ -11,7 +12,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: 'feature/cicd'
+          ref: 'dev'
 
       - name: Docker Setup Compose
         uses: docker/setup-compose-action@v1
@@ -44,7 +45,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd ${{ secrets.SCP_PATH }}
-            git pull origin feature/cicd
+            git pull origin dev
             echo "${{ vars.ENV_DEV }}" > .env.development
             docker compose --file docker-compose-dev.yml down --rmi all
             docker image load --input mavoka-fe-2025-dev-img.tar
